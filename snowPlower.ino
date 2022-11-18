@@ -1,4 +1,5 @@
 #include <EZDist.h>
+#include <avr/wdt.h>
 
 //Rear Direction HIGH = Backwards // LOW = Forward
 #define RearLeftDirection 6
@@ -47,9 +48,11 @@ bool frontSensorFlag = 0;
 //1 is right, 0 is left
 bool turnDirection = 0;
 
-//Speed
+//Motor Constant Speed Variables
 const int maxSpeed = 200;
-const int halfSpeed = 100;
+const int normalSpeed = 150;
+const int slowSpeed = 100;
+const int turningSpeed = 150;
 
 //Setting up LaneFollower Variables
 bool LFS1L;
@@ -85,24 +88,24 @@ void setup() {
   pinMode(LFS2_L, INPUT);
   pinMode(LFS2_M, INPUT);
   pinMode(LFS2_R, INPUT);
+
+  //Setting up WATCHDOG timer
+  delay(3000);
+  wdt_enable(WDTO_8S);
 }
 
 void loop() {
-  //sensorTest();
-  sensorRead();
-  //motorTest();  
+  sensorRead(); 
   if((distanceLeft <= stopDistance) || (distanceRight <= stopDistance))
   {
     driveBwd();
     delay(300);
     if(turnDirection)
     {   
-      // turnRight();
       turn(turnDirection);
     }
     else
     {
-      // turnLeft();
       turn(turnDirection);
     }
     delay(300);
@@ -116,84 +119,40 @@ void loop() {
     {
       driveBwd();      
     }
-    else if(distanceLeft <= minDistance)
+    // else if(distanceLeft <= minDistance)
+    // {
+    //   turn(turnDirection);
+    // }
+    // else if(distanceRight <= minDistance)
+    // {
+    //   turn(turnDirection);
+    // }
+    else
     {
-      // turnRight();
-      turn(turnDirection);
-    }
-    else if(distanceRight <= minDistance)
-    {
-      // turnLeft();
       turn(turnDirection);
     }
   }
   else{
     driveFwd();
-  }  
-}
-
-void motorTest()
-{
-  stop();
-  digitalWrite(RearLeftDirection, LOW);
-  digitalWrite(RearRightDirection, LOW);
-  digitalWrite(FrontLeftDirection, HIGH);
-  digitalWrite(FrontRightDirection, HIGH);
-
-  analogWrite(RearLeftPower, maxSpeed);
-  delay(2000);
-  analogWrite(RearLeftPower, 0);
-  analogWrite(RearRightPower, maxSpeed);
-  delay(2000);
-  analogWrite(RearRightPower, 0);
-  analogWrite(FrontLeftPower, maxSpeed);
-  delay(2000);
-  analogWrite(FrontLeftPower, 0);  
-  analogWrite(FrontRightPower, maxSpeed);
-  delay(2000);
-  stop();
-}
-
-void sensorTest()
-{
-  distanceRight = UltraRight.cm();  
-  distanceLeft = UltraLeft.cm();
-  if((UltraLeft.cm() > 0) && (UltraLeft.cm() < 500)) 
-  {
-    distanceLeft = UltraLeft.cm();
-    //Serial.print("Left: ")  ;
-    //Serial.println(distanceLeft);
   }
-
-  if((UltraRight.cm() > 0) && (UltraRight.cm() < 500))
-  {
-    distanceRight = UltraRight.cm();
-    //Serial.print("Right: ")  ;
-    //Serial.println(distanceRight); 
-  }
-  delay(1000);
+  //Watchdog timer reset
+  wdt_reset();
+  //infinity loop to hang MCU
+  while(1){}
 }
 
 void sensorRead () {
-  //Read Left and Right UltraSonics
 
-  //frontSensorFlag = 0;
-
+  //Ultra Sonic Sensors
   int tempLeft = UltraLeft.cm();
   int tempRight = UltraRight.cm();
-  
   if((tempLeft > 0)) 
   {
     distanceLeft = tempLeft;
-    // Serial.print("Left: ")  ;
-    // Serial.println(distanceLeft);
   }
-
   if((tempRight > 0))
   {
     distanceRight = tempRight;
-    // Serial.print("Right: ") ;
-    // Serial.println(distanceRight); 
   }
   if(distanceRight<25 || distanceLeft<25 && distanceLeft!=distanceRight)
   {
@@ -206,16 +165,13 @@ void sensorRead () {
       turnDirection = 1;
     }
   }
-  frontSensorOnOff = digitalRead(FrontSensor);
-
+  
   //Front Sensor
+  frontSensorOnOff = digitalRead(FrontSensor);
   if((frontSensorFlag == 0) && (frontSensorOnOff == 1))
   {
     frontSensorFlag = 1;   
   }
-
-  //Serial.print("Front: ");
-  //Serial.println(frontSensorOnOff);
 
   //Read LaneFollowers
   LFS1L = digitalRead(LFS1_L);
@@ -231,23 +187,13 @@ void hardAvoid()
   Serial.println("Hard Avoid");
   driveBwd();
   delay(300);
-  // if(turnDirection)
-  // {   
-  //   while((!frontSensorOnOff))
-  //   {
-  //     turnRight();
-  //     sensorRead();
-  //   }
-  // }
-  // else
-  // {
-    while((!frontSensorOnOff))
-    {
-      // turnLeft();
-      turn(turnDirection);
-      sensorRead();
-    }    
-  // }
+  while((!frontSensorOnOff))
+  {
+    turn(turnDirection);
+    sensorRead();
+    //Watchdog timer reset
+    wdt_reset();  
+  }    
 }
 
 void driveFwd()
@@ -257,35 +203,10 @@ void driveFwd()
   digitalWrite(FrontLeftDirection, HIGH);
   digitalWrite(FrontRightDirection, HIGH);
 
-  analogWrite(RearLeftPower, 150);
-  analogWrite(RearRightPower, 150);
-  analogWrite(FrontLeftPower, 150);
-  analogWrite(FrontRightPower, 150);
-}
-
-void veerRight()
-{
-  digitalWrite(RearLeftDirection, LOW);
-  digitalWrite(RearRightDirection, LOW);
-  digitalWrite(FrontLeftDirection, HIGH);
-  digitalWrite(FrontRightDirection, HIGH);
-
-  analogWrite(RearLeftPower, 250);
-  analogWrite(RearRightPower, 0);
-  analogWrite(FrontLeftPower, 250);
-  analogWrite(FrontRightPower, 0);
-}
-void veerLeft()
-{
-  digitalWrite(RearLeftDirection, LOW);
-  digitalWrite(RearRightDirection, LOW);
-  digitalWrite(FrontLeftDirection, HIGH);
-  digitalWrite(FrontRightDirection, HIGH);
-
-  analogWrite(RearLeftPower, 0);
-  analogWrite(RearRightPower, 250);
-  analogWrite(FrontLeftPower, 0);
-  analogWrite(FrontRightPower, 250);
+  analogWrite(RearLeftPower, normalSpeed);
+  analogWrite(RearRightPower, normalSpeed);
+  analogWrite(FrontLeftPower, normalSpeed);
+  analogWrite(FrontRightPower, normalSpeed);
 }
 
 void driveBwd()
@@ -295,10 +216,10 @@ void driveBwd()
   digitalWrite(FrontLeftDirection, LOW);
   digitalWrite(FrontRightDirection, LOW);
 
-  analogWrite(RearLeftPower, 100);
-  analogWrite(RearRightPower, 100);
-  analogWrite(FrontLeftPower, 100);
-  analogWrite(FrontRightPower, 100);
+  analogWrite(RearLeftPower, slowSpeed);
+  analogWrite(RearRightPower, slowSpeed);
+  analogWrite(FrontLeftPower, slowSpeed);
+  analogWrite(FrontRightPower, slowSpeed);
 }
 
 void stop()
@@ -309,43 +230,17 @@ void stop()
   analogWrite(FrontRightPower, 0);
 }
 
-// void turnRight()
-// {
-//   digitalWrite(RearLeftDirection, LOW);
-//   digitalWrite(RearRightDirection, HIGH);
-//   digitalWrite(FrontLeftDirection, HIGH);
-//   digitalWrite(FrontRightDirection, LOW);
-
-//   analogWrite(RearLeftPower, 150);
-//   analogWrite(RearRightPower, 150);
-//   analogWrite(FrontLeftPower, 150);
-//   analogWrite(FrontRightPower, 150);
-// }
-
-// void turnLeft()
-// {
-//   digitalWrite(RearLeftDirection, HIGH);
-//   digitalWrite(RearRightDirection, LOW);
-//   digitalWrite(FrontLeftDirection, LOW);
-//   digitalWrite(FrontRightDirection, HIGH);
-
-//   analogWrite(RearLeftPower, 200);
-//   analogWrite(RearRightPower, 200);
-//   analogWrite(FrontLeftPower, 200);
-//   analogWrite(FrontRightPower, 200);
-// }
-
 void turn(int dir)
 {
-  // int inv  = !dir;
-
+  //If dir is 1, the car will turn right
+  //If dir is 0, the car will turn left
   digitalWrite(RearLeftDirection, !dir);
   digitalWrite(RearRightDirection, dir);
   digitalWrite(FrontLeftDirection, dir);
   digitalWrite(FrontRightDirection, !dir);
 
-  analogWrite(RearLeftPower, 150);
-  analogWrite(RearRightPower, 150);
-  analogWrite(FrontLeftPower, 150);
-  analogWrite(FrontRightPower, 150);
+  analogWrite(RearLeftPower, turningSpeed);
+  analogWrite(RearRightPower, turningSpeed);
+  analogWrite(FrontLeftPower, turningSpeed);
+  analogWrite(FrontRightPower, turningSpeed);
 }

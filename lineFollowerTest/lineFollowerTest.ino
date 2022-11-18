@@ -1,7 +1,7 @@
 //LineFollower Sensors
-#define LeftLineFollower 35
-#define MiddleLineFollower 36
-#define RightLineFollower 37
+#define LeftLineFollower 32
+#define MiddleLineFollower 33
+#define RightLineFollower 34
 
 void setup() {
 //Begin Monitor  
@@ -18,9 +18,9 @@ void loop() {
 
 void lineFollowerTest()
 {
-  int left = digitalRead(LeftLineFollower);
-  int middle = digitalRead(MiddleLineFollower);
-  int right = digitalRead(RightLineFollower);
+  bool left = digitalRead(LeftLineFollower);
+  bool middle = digitalRead(MiddleLineFollower);
+  bool right = digitalRead(RightLineFollower);
 
   Serial.print("Left Sensor: ");
   Serial.println(left);
