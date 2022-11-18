@@ -14,7 +14,9 @@ bool turnDirection = 0;
 
 //Speed
 const int maxSpeed = 200;
-const int halfSpeed = 100;
+const int normalSpeed = 150;
+const int slowSpeed = 100;
+const int turningSpeed = 150;
 
 //Setting up LaneFollower Variables
 bool LFS1L;
@@ -68,7 +70,25 @@ void motorTest()
   analogWrite(FrontRightPower, maxSpeed);
   delay(2000);
   analogWrite(FrontRightPower, 0);
-  stop();
+
+  delay(1000);
+
+  driveFwd();
+  delay(3000);
+
+  driveBwd();
+  delay(3000);
+
+  //Turn right
+  turn(1);
+  delay(3000);
+
+  //Turn left
+  turn(0);
+  delay(3000);
+
+ stop();
+ delay(5000);
 }
 
 void driveFwd()
@@ -78,10 +98,10 @@ void driveFwd()
   digitalWrite(FrontLeftDirection, HIGH);
   digitalWrite(FrontRightDirection, HIGH);
 
-  analogWrite(RearLeftPower, 150);
-  analogWrite(RearRightPower, 150);
-  analogWrite(FrontLeftPower, 150);
-  analogWrite(FrontRightPower, 150);
+  analogWrite(RearLeftPower, normalSpeed);
+  analogWrite(RearRightPower, normalSpeed);
+  analogWrite(FrontLeftPower, normalSpeed);
+  analogWrite(FrontRightPower, normalSpeed);
 }
 
 void driveBwd()
@@ -91,10 +111,10 @@ void driveBwd()
   digitalWrite(FrontLeftDirection, LOW);
   digitalWrite(FrontRightDirection, LOW);
 
-  analogWrite(RearLeftPower, 100);
-  analogWrite(RearRightPower, 100);
-  analogWrite(FrontLeftPower, 100);
-  analogWrite(FrontRightPower, 100);
+  analogWrite(RearLeftPower, slowSpeed);
+  analogWrite(RearRightPower, slowSpeed);
+  analogWrite(FrontLeftPower, slowSpeed);
+  analogWrite(FrontRightPower, slowSpeed);
 }
 
 void stop()
@@ -104,9 +124,6 @@ void stop()
   analogWrite(FrontLeftPower, 0);
   analogWrite(FrontRightPower, 0);
 }
-
-
-
 
 void veerRight()
 {
@@ -140,10 +157,10 @@ void turnRight()
   digitalWrite(FrontLeftDirection, HIGH);
   digitalWrite(FrontRightDirection, LOW);
 
-  analogWrite(RearLeftPower, 150);
-  analogWrite(RearRightPower, 150);
-  analogWrite(FrontLeftPower, 150);
-  analogWrite(FrontRightPower, 150);
+  analogWrite(RearLeftPower, turningSpeed);
+  analogWrite(RearRightPower, turningSpeed);
+  analogWrite(FrontLeftPower, turningSpeed);
+  analogWrite(FrontRightPower, turningSpeed);
 }
 
 void turnLeft()
@@ -153,10 +170,10 @@ void turnLeft()
   digitalWrite(FrontLeftDirection, LOW);
   digitalWrite(FrontRightDirection, HIGH);
 
-  analogWrite(RearLeftPower, 200);
-  analogWrite(RearRightPower, 200);
-  analogWrite(FrontLeftPower, 200);
-  analogWrite(FrontRightPower, 200);
+  analogWrite(RearLeftPower, turningSpeed);
+  analogWrite(RearRightPower, turningSpeed);
+  analogWrite(FrontLeftPower, turningSpeed);
+  analogWrite(FrontRightPower, turningSpeed);
 }
 
 void turn(int dir)
@@ -166,8 +183,8 @@ void turn(int dir)
   digitalWrite(FrontLeftDirection, dir);
   digitalWrite(FrontRightDirection, !dir);
 
-  analogWrite(RearLeftPower, 150);
-  analogWrite(RearRightPower, 150);
-  analogWrite(FrontLeftPower, 150);
-  analogWrite(FrontRightPower, 150);
+  analogWrite(RearLeftPower, turningSpeed);
+  analogWrite(RearRightPower, turningSpeed);
+  analogWrite(FrontLeftPower, turningSpeed);
+  analogWrite(FrontRightPower, turningSpeed);
 }
