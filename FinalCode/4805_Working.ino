@@ -1,6 +1,8 @@
+//Library For Ultrasonic sensors
 #include <EZDist.h>
-#include <avr/wdt.h>
 
+/** Defining Pins **/
+//Motors
 //Rear Direction HIGH = Backwards // LOW = Forward
 #define RearLeftDirection 6
 #define RearLeftPower 11
@@ -11,35 +13,32 @@
 #define FrontLeftPower 9
 #define FrontRightDirection 3
 #define FrontRightPower 8
+
 //Ultrasonic Sensors
 #define TrigPinLeft 22
 #define EchoPinLeft 23
 #define TrigPinRight 24
 #define EchoPinRight 25
-//LineFollower Sensors
 
-//Front
-#define LFS1_M 34
-#define LFS1_L 32
-#define LFS1_R 33
+//LineFollower Sensor
+#define LFS1_M A2
+#define LFS1_L A4
+#define LFS1_R A3
 
-//Front Right
-#define LFS2_R 30
-#define LFS2_M 31
-#define LFS2_L 41
-
-//Other Sensors
+//Front IR Sensor
 #define FrontSensor 13
 
-//Using EZDist To Track Distance
+//Using EZDist To Track Distance, Initializing the sensor pins
 EZDist UltraLeft(TrigPinLeft, EchoPinLeft);
 EZDist UltraRight(TrigPinRight, EchoPinRight);
 
 //Setting Up Distance Variables and Constants
 int distanceLeft = 500;
 int distanceRight = 500;
+
+//Set distances for Ultrasonic Turning
 const int minDistance = 15;
-const int stopDistance = 10;
+const int stopDistance = 8;
 
 //Front Sensor
 bool frontSensorOnOff;
@@ -48,19 +47,17 @@ bool frontSensorFlag = 0;
 //1 is right, 0 is left
 bool turnDirection = 0;
 
-//Motor Constant Speed Variables
+//Speed Constants
 const int maxSpeed = 200;
 const int normalSpeed = 150;
-const int slowSpeed = 100;
-const int turningSpeed = 150;
+const int halfSpeed = 100;
 
 //Setting up LaneFollower Variables
-bool LFS1L;
-bool LFS1M;
-bool LFS1R;
-bool LFS2L;
-bool LFS2M;
-bool LFS2R;
+int LFS1L;
+int LFS1M;
+int LFS1R;
+
+const int frontBlackThreshold = 950;
 
 void setup() {
 //Begin Monitor  
@@ -85,75 +82,67 @@ void setup() {
   pinMode(LFS1_L, INPUT);
   pinMode(LFS1_M, INPUT);
   pinMode(LFS1_R, INPUT);
-  pinMode(LFS2_L, INPUT);
-  pinMode(LFS2_M, INPUT);
-  pinMode(LFS2_R, INPUT);
-
-  //Setting up WATCHDOG timer
-  delay(3000);
-  wdt_enable(WDTO_8S);
 }
 
+/** Main Loop, to be run over and over **/
 void loop() {
-  sensorRead(); 
+  //Start by polling the sensors
+  sensorRead();
+  //Seeing if we detect black on our linefollower
+  if((LFS1L > frontBlackThreshold) || (LFS1M > frontBlackThreshold) || (LFS1R > frontBlackThreshold))
+  {
+    blackDetected();
+  }
+  //If one of our sensors is too close to an object, hardAvoid it
   if((distanceLeft <= stopDistance) || (distanceRight <= stopDistance))
   {
-    driveBwd();
-    delay(300);
-    if(turnDirection)
-    {   
-      turn(turnDirection);
-    }
-    else
-    {
-      turn(turnDirection);
-    }
-    delay(300);
+    Serial.println("UltraSonic Stop");
+    hardAvoid();
   }
+  //If one of our sensors is slightly close to an object or our front sensor sees something
   if((distanceLeft <= minDistance) || (distanceRight <= minDistance) || (!frontSensorOnOff)){  
+    //Front sensor detects something, we must be about to hit an object, so hard Avoid
     if((frontSensorFlag) && (!frontSensorOnOff))
     {
+      Serial.println("Front Sensor Stop");
       hardAvoid();
+      delay(300);
     }
+    //If both ultrasonics see something, we need to back up out of there
     else if((distanceLeft < minDistance ) && (distanceRight < minDistance))
     {
-      driveBwd();      
+      Serial.println("Both UltraSonic Stop");
+      driveBwd();   
+      delay(300);   
     }
-    // else if(distanceLeft <= minDistance)
-    // {
-    //   turn(turnDirection);
-    // }
-    // else if(distanceRight <= minDistance)
-    // {
-    //   turn(turnDirection);
-    // }
+    //This means only one ultrasonic sees something, so turn away from it
     else
     {
-      turn(turnDirection);
+      Serial.println("UltraSonic turn");
+      turn(turnDirection, normalSpeed);
+      delay(300);
     }
   }
+  //If we see nothing, default to driving forward
   else{
     driveFwd();
-  }
-  //Watchdog timer reset
-  wdt_reset();
-  //infinity loop to hang MCU
-  while(1){}
+  }  
 }
-
 void sensorRead () {
-
-  //Ultra Sonic Sensors
+  //Read Left and Right UltraSonics
   int tempLeft = UltraLeft.cm();
   int tempRight = UltraRight.cm();
+  
+  //Debouncing
   if((tempLeft > 0)) 
   {
     distanceLeft = tempLeft;
   }
   if((tempRight > 0))
   {
-    distanceRight = tempRight;
+    distanceRight = tempRight;; 
   }
+  //Setting turn direction
   if(distanceRight<25 || distanceLeft<25 && distanceLeft!=distanceRight)
   {
     if((distanceLeft > distanceRight))            
@@ -165,35 +154,58 @@ void sensorRead () {
       turnDirection = 1;
     }
   }
-  
-  //Front Sensor
+  //Reading Front Sensor
   frontSensorOnOff = digitalRead(FrontSensor);
+
+  //Front Sensor Flag
   if((frontSensorFlag == 0) && (frontSensorOnOff == 1))
   {
     frontSensorFlag = 1;   
   }
 
   //Read LaneFollowers
-  LFS1L = digitalRead(LFS1_L);
-  LFS1M = digitalRead(LFS1_M);
-  LFS1R = digitalRead(LFS1_R);
-  LFS2L = digitalRead(LFS2_L);
-  LFS2M = digitalRead(LFS2_M);
-  LFS2R = digitalRead(LFS2_R);
+  LFS1L = analogRead(LFS1_L);
+  LFS1M = analogRead(LFS1_M);
+  LFS1R = analogRead(LFS1_R);
 }
 
+void blackDetected(bool dir)
+{
+  //Stop for a split seconf
+  stop();
+  delay(300);
+  //Drive back
+  driveBwd();
+  delay(400);
+  //Turn based on which sensor triggered the detection
+  if(LFS1L > frontBlackThreshold)
+  {
+    turn(1, maxSpeed);
+    delay(800);
+  }
+  else if(LFS1R > frontBlackThreshold)
+  {
+    turn(0, maxSpeed);
+    delay(800);
+  }
+  //If it was middle, turn based on which ultrasonic sees something farther away
+  else
+  {
+    turn(turnDirection, maxSpeed);
+    delay(800);
+  }
+}
+//Our hard avoid function, drives back and then turns
 void hardAvoid()
 {
   Serial.println("Hard Avoid");
   driveBwd();
+  delay(400);
+  stop();
   delay(300);
-  while((!frontSensorOnOff))
-  {
-    turn(turnDirection);
-    sensorRead();
-    //Watchdog timer reset
-    wdt_reset();  
-  }    
+  turn(turnDirection, maxSpeed);
+  delay(500);  
+  Serial.println("HARD AVOIDED");  
 }
 
 void driveFwd()
@@ -203,12 +215,11 @@ void driveFwd()
   digitalWrite(FrontLeftDirection, HIGH);
   digitalWrite(FrontRightDirection, HIGH);
 
-  analogWrite(RearLeftPower, normalSpeed);
-  analogWrite(RearRightPower, normalSpeed);
-  analogWrite(FrontLeftPower, normalSpeed);
-  analogWrite(FrontRightPower, normalSpeed);
+  analogWrite(RearLeftPower, 150);
+  analogWrite(RearRightPower, 150);
+  analogWrite(FrontLeftPower, 150);
+  analogWrite(FrontRightPower, 150);
 }
-
 void driveBwd()
 {
   digitalWrite(RearLeftDirection, HIGH);
@@ -216,10 +227,10 @@ void driveBwd()
   digitalWrite(FrontLeftDirection, LOW);
   digitalWrite(FrontRightDirection, LOW);
 
-  analogWrite(RearLeftPower, slowSpeed);
-  analogWrite(RearRightPower, slowSpeed);
-  analogWrite(FrontLeftPower, slowSpeed);
-  analogWrite(FrontRightPower, slowSpeed);
+  analogWrite(RearLeftPower, 100);
+  analogWrite(RearRightPower, 100);
+  analogWrite(FrontLeftPower, 100);
+  analogWrite(FrontRightPower, 100);
 }
 
 void stop()
@@ -230,17 +241,17 @@ void stop()
   analogWrite(FrontRightPower, 0);
 }
 
-void turn(int dir)
+//Turn based on input direction and speed
+void turn(int dir, int speed)
 {
-  //If dir is 1, the car will turn right
-  //If dir is 0, the car will turn left
+  // int inv  = !dir;
   digitalWrite(RearLeftDirection, !dir);
   digitalWrite(RearRightDirection, dir);
   digitalWrite(FrontLeftDirection, dir);
   digitalWrite(FrontRightDirection, !dir);
 
-  analogWrite(RearLeftPower, turningSpeed);
-  analogWrite(RearRightPower, turningSpeed);
-  analogWrite(FrontLeftPower, turningSpeed);
-  analogWrite(FrontRightPower, turningSpeed);
+  analogWrite(RearLeftPower, speed);
+  analogWrite(RearRightPower, speed);
+  analogWrite(FrontLeftPower, speed);
+  analogWrite(FrontRightPower, speed);
 }
